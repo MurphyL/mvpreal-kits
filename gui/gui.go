@@ -184,9 +184,66 @@ func RunApp() {
 		}
 	}
 
-	// 然后添加非置顶的模块
+	// 然后添加收藏的模块（非置顶）
 	for _, feature := range features {
-		if !isPinned(feature.Name()) {
+		if !isPinned(feature.Name()) && isFavorite(feature.Name()) {
+			// 创建功能模块的UI组件
+			content := feature.Create()
+
+			// 创建帮助按钮
+			helpButton := widget.NewButton("帮助", func() {
+				// 创建帮助文档对话框
+				helpContent := widget.NewLabel(feature.Help())
+				helpContent.Wrapping = fyne.TextWrapWord
+				dialog.NewCustom(feature.Name()+"帮助", "关闭", container.NewScroll(helpContent), myWindow).Show()
+			})
+
+			// 创建收藏按钮
+			favoriteButton := widget.NewButton("", nil)
+			if isFavorite(feature.Name()) {
+				favoriteButton.SetText("★")
+			} else {
+				favoriteButton.SetText("☆")
+			}
+			favoriteButton.OnTapped = func() {
+				toggleFavorite(feature.Name())
+				if isFavorite(feature.Name()) {
+					favoriteButton.SetText("★")
+				} else {
+					favoriteButton.SetText("☆")
+				}
+			}
+
+			// 创建置顶按钮
+			pinnedButton := widget.NewButton("", nil)
+			if isPinned(feature.Name()) {
+				pinnedButton.SetText("↑")
+			} else {
+				pinnedButton.SetText("↓")
+			}
+			pinnedButton.OnTapped = func() {
+				togglePinned(feature.Name())
+				if isPinned(feature.Name()) {
+					pinnedButton.SetText("↑")
+				} else {
+					pinnedButton.SetText("↓")
+				}
+			}
+
+			// 创建包含功能内容和按钮的容器
+			featureContent := container.NewBorder(
+				container.NewHBox(helpButton, favoriteButton, pinnedButton, themeButton),
+				nil, nil, nil,
+				content,
+			)
+
+			tabs.Append(container.NewTabItem(feature.Name(), featureContent))
+		}
+	}
+
+	// 最后添加非置顶且非收藏的模块
+	for _, feature := range features {
+		if !isPinned(feature.Name()) && !isFavorite(feature.Name()) {
 			// 创建功能模块的UI组件
 			content := feature.Create()
 
