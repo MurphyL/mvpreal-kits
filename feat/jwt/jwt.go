@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"mvpreal/feat"
-
 	"github.com/golang-jwt/jwt/v5"
 
 	"fyne.io/fyne/v2"
@@ -14,10 +12,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// init 函数，自动注册功能模块
-func init() {
-	feat.RegisterFeature(&JWTFeature{})
-}
+// 注意：JWT功能已合并到 codec 模块中
+// init 函数，不再自动注册功能模块
+// func init() {
+// 	feat.RegisterFeature(&JWTFeature{})
+// }
 
 // JWTFeature JWT功能模块
 type JWTFeature struct{}

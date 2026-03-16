@@ -12,6 +12,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
@@ -19,6 +20,15 @@ import (
 // init 函数，自动注册功能模块
 func init() {
 	feat.RegisterFeature(&HTTPFeature{})
+}
+
+// HTTPRequest 存储HTTP请求信息
+type HTTPRequest struct {
+	Name    string `json:"name"`    // 请求名称
+	Method  string `json:"method"`  // 请求方法
+	URL     string `json:"url"`     // 请求URL
+	Headers string `json:"headers"` // 请求头
+	Body    string `json:"body"`    // 请求体
 }
 
 // HTTPFeature HTTP功能模块
@@ -48,21 +58,66 @@ func (f *HTTPFeature) Help() string {
 
 // Create 创建功能模块的UI组件
 func (f *HTTPFeature) Create() fyne.CanvasObject {
+	// 加载配置（预留用于后续功能）
+	// _, err := config.Load()
+	// if err != nil {
+	// 	_ = config.GetDefaultConfig()
+	// }
+
+	// 请求名称
+	requestName := widget.NewEntry()
+	requestName.SetPlaceHolder("输入请求名称（用于保存）")
+
+	// 方法选择
 	method := widget.NewSelect([]string{"GET", "POST", "PUT", "DELETE", "PATCH"}, func(s string) {})
 	method.SetSelected("GET")
 
+	// URL输入
 	urlEntry := widget.NewEntry()
 	urlEntry.SetPlaceHolder("输入请求URL")
 
+	// 请求头编辑
 	headerEditor := widget.NewMultiLineEntry()
 	headerEditor.SetPlaceHolder("输入请求头，格式：Key: Value")
 
+	// 请求体编辑
 	bodyEditor := widget.NewMultiLineEntry()
 	bodyEditor.SetPlaceHolder("输入请求体")
 
+	// 响应显示
 	responseText := widget.NewLabel("")
 	responseText.Wrapping = fyne.TextWrapWord
 
+	// 加载保存的请求
+	loadRequest := widget.NewSelect([]string{"选择保存的请求"}, func(s string) {
+		if s != "选择保存的请求" {
+			// 这里可以加载保存的请求
+			dialog.NewInformation("提示", "加载请求功能开发中...", nil).Show()
+		}
+	})
+
+	// 保存请求按钮
+	saveButton := widget.NewButton("保存请求", func() {
+		name := requestName.Text
+		if name == "" {
+			dialog.NewInformation("提示", "请输入请求名称", nil).Show()
+			return
+		}
+
+		// 构造请求对象（预留用于后续功能）
+		// _ = HTTPRequest{
+		// 	Name:    name,
+		// 	Method:  method.Selected,
+		// 	URL:     urlEntry.Text,
+		// 	Headers: headerEditor.Text,
+		// 	Body:    bodyEditor.Text,
+		// }
+
+		// 这里可以保存请求
+		dialog.NewInformation("提示", "保存请求功能开发中...", nil).Show()
+	})
+
+	// 发送请求按钮
 	sendButton := widget.NewButton("发送请求", func() {
 		go func() {
 			client := &http.Client{
@@ -123,7 +178,12 @@ func (f *HTTPFeature) Create() fyne.CanvasObject {
 		}()
 	})
 
+	// 布局
 	form := container.NewVBox(
+		container.NewHBox(
+			widget.NewLabel("请求名称:"),
+			requestName,
+		),
 		container.NewHBox(
 			widget.NewLabel("方法:"),
 			method,
@@ -133,11 +193,18 @@ func (f *HTTPFeature) Create() fyne.CanvasObject {
 			widget.NewLabel("URL:"),
 			urlEntry,
 		),
+		container.NewHBox(
+			widget.NewLabel("加载请求:"),
+			loadRequest,
+		),
 		widget.NewLabel("请求头:"),
 		headerEditor,
 		widget.NewLabel("请求体:"),
 		bodyEditor,
-		sendButton,
+		container.NewHBox(
+			saveButton,
+			sendButton,
+		),
 		widget.NewLabel("响应:"),
 		responseText,
 	)

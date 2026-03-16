@@ -3,7 +3,11 @@ package crypto
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/md5"
 	"crypto/rand"
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -33,40 +37,62 @@ func (f *CryptoFeature) Name() string {
 func (f *CryptoFeature) Help() string {
 	return `文本加解密使用说明：
 
-1. 选择模式：加密、解密
-2. 输入加密密钥，长度必须为16、24或32字节
-3. 输入要加密或解密的文本
-4. 点击"执行"按钮执行操作
-5. 查看结果
+1. 选择加密算法：AES、MD5、SHA1、SHA256、SHA512
+2. 对于AES算法，选择操作模式：加密、解密
+3. 对于AES算法，输入加密密钥，长度必须为16、24或32字节
+4. 输入要处理的文本
+5. 点击"执行"按钮执行操作
+6. 查看结果
+
+支持的算法：
+- AES：对称加密算法，需要密钥
+- MD5：哈希算法，生成32位十六进制字符串
+- SHA1：哈希算法，生成40位十六进制字符串
+- SHA256：哈希算法，生成64位十六进制字符串
+- SHA512：哈希算法，生成128位十六进制字符串
 
 注意事项：
-- 加密和解密必须使用相同的密钥
-- 加密结果会进行Base64编码
-- 使用AES-CFB加密算法`
+- AES加密和解密必须使用相同的密钥
+- AES加密结果会进行Base64编码
+- 哈希算法是单向的，无法从哈希值还原原始文本`
 }
 
 // Create 创建功能模块的UI组件
 func (f *CryptoFeature) Create() fyne.CanvasObject {
+	// 加密算法选择
+	cryptoAlgorithm := widget.NewSelect([]string{"AES", "MD5", "SHA1", "SHA256", "SHA512"}, func(s string) {})
+	cryptoAlgorithm.SetSelected("AES")
+
+	// 操作模式选择
 	cryptoMode := widget.NewSelect([]string{"加密", "解密"}, func(s string) {})
 	cryptoMode.SetSelected("加密")
 
+	// 密钥输入
 	cryptoKey := widget.NewPasswordEntry()
-	cryptoKey.SetPlaceHolder("输入加密密钥（16、24或32字节）")
+	cryptoKey.SetPlaceHolder("输入加密密钥（AES需要16、24或32字节）")
 
+	// 输入文本
 	cryptoText := widget.NewMultiLineEntry()
 	cryptoText.SetPlaceHolder("输入要加密/解密的文本")
 
+	// 结果文本
 	resultText := widget.NewLabel("")
 	resultText.Wrapping = fyne.TextWrapWord
 
+	// 监听算法变化
+	cryptoAlgorithm.OnChanged = func(s string) {
+		if s == "AES" {
+			cryptoMode.Hidden = false
+			cryptoKey.Hidden = false
+		} else {
+			cryptoMode.Hidden = true
+			cryptoKey.Hidden = true
+		}
+	}
+
+	// 执行按钮
 	executeButton := widget.NewButton("执行", func() {
 		go func() {
-			key := cryptoKey.Text
-			if len(key) != 16 && len(key) != 24 && len(key) != 32 {
-				resultText.SetText("密钥长度必须为16、24或32字节")
-				return
-			}
-
 			text := cryptoText.Text
 			if text == "" {
 				resultText.SetText("请输入要处理的文本")
@@ -76,10 +102,26 @@ func (f *CryptoFeature) Create() fyne.CanvasObject {
 			var result string
 			var err error
 
-			if cryptoMode.Selected == "加密" {
-				result, err = Encrypt(text, key)
-			} else {
-				result, err = Decrypt(text, key)
+			switch cryptoAlgorithm.Selected {
+			case "AES":
+				key := cryptoKey.Text
+				if len(key) != 16 && len(key) != 24 && len(key) != 32 {
+					resultText.SetText("AES密钥长度必须为16、24或32字节")
+					return
+				}
+				if cryptoMode.Selected == "加密" {
+					result, err = Encrypt(text, key)
+				} else {
+					result, err = Decrypt(text, key)
+				}
+			case "MD5":
+				result = MD5Hash(text)
+			case "SHA1":
+				result = SHA1Hash(text)
+			case "SHA256":
+				result = SHA256Hash(text)
+			case "SHA512":
+				result = SHA512Hash(text)
 			}
 
 			if err != nil {
@@ -91,7 +133,13 @@ func (f *CryptoFeature) Create() fyne.CanvasObject {
 		}()
 	})
 
+	// 布局
 	form := container.NewVBox(
+		container.NewHBox(
+			widget.NewLabel("算法:"),
+			cryptoAlgorithm,
+			layout.NewSpacer(),
+		),
 		container.NewHBox(
 			widget.NewLabel("模式:"),
 			cryptoMode,
@@ -152,4 +200,28 @@ func Decrypt(ciphertext, key string) (string, error) {
 	cfb.XORKeyStream(data, data)
 
 	return string(data), nil
+}
+
+// MD5Hash 计算MD5哈希
+func MD5Hash(text string) string {
+	hash := md5.Sum([]byte(text))
+	return fmt.Sprintf("%x", hash)
+}
+
+// SHA1Hash 计算SHA1哈希
+func SHA1Hash(text string) string {
+	hash := sha1.Sum([]byte(text))
+	return fmt.Sprintf("%x", hash)
+}
+
+// SHA256Hash 计算SHA256哈希
+func SHA256Hash(text string) string {
+	hash := sha256.Sum256([]byte(text))
+	return fmt.Sprintf("%x", hash)
+}
+
+// SHA512Hash 计算SHA512哈希
+func SHA512Hash(text string) string {
+	hash := sha512.Sum512([]byte(text))
+	return fmt.Sprintf("%x", hash)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"mvpreal/feat"
 
@@ -43,6 +44,14 @@ func (f *WebhookFeature) Help() string {
 - Markdown消息格式：{"msgtype": "markdown", "markdown": {"content": "Markdown内容"}}`
 }
 
+// WebhookPreset Webhook预设
+type WebhookPreset struct {
+	Name    string `json:"name"`    // 预设名称
+	URL     string `json:"url"`     // Webhook URL
+	Body    string `json:"body"`    // 请求体
+	Headers string `json:"headers"` // 请求头
+}
+
 // Create 创建功能模块的UI组件
 func (f *WebhookFeature) Create() fyne.CanvasObject {
 	// Webhook类型选择
@@ -52,6 +61,11 @@ func (f *WebhookFeature) Create() fyne.CanvasObject {
 	// Webhook URL
 	webhookURL := widget.NewEntry()
 	webhookURL.SetPlaceHolder("Webhook URL")
+
+	// 请求头
+	requestHeaders := widget.NewMultiLineEntry()
+	requestHeaders.SetPlaceHolder("输入请求头，格式：Key: Value，每行一个")
+	requestHeaders.SetText("Content-Type: application/json")
 
 	// 请求体
 	requestBody := widget.NewMultiLineEntry()
@@ -63,6 +77,37 @@ func (f *WebhookFeature) Create() fyne.CanvasObject {
 	// 结果文本
 	resultText := widget.NewLabel("")
 	resultText.Wrapping = fyne.TextWrapWord
+
+	// 加载预设
+	loadPreset := widget.NewSelect([]string{"选择预设"}, func(s string) {
+		if s != "选择预设" {
+			// 这里可以加载预设
+			dialog.NewInformation("提示", "加载预设功能开发中...", nil).Show()
+		}
+	})
+
+	// 保存预设
+	savePresetName := widget.NewEntry()
+	savePresetName.SetPlaceHolder("预设名称")
+
+	savePresetButton := widget.NewButton("保存预设", func() {
+		name := savePresetName.Text
+		if name == "" {
+			dialog.NewInformation("提示", "请输入预设名称", nil).Show()
+			return
+		}
+
+		// 构造预设对象（预留用于后续功能）
+		// _ = WebhookPreset{
+		// 	Name:    name,
+		// 	URL:     webhookURL.Text,
+		// 	Body:    requestBody.Text,
+		// 	Headers: requestHeaders.Text,
+		// }
+
+		// 这里可以保存预设
+		dialog.NewInformation("提示", "保存预设功能开发中...", nil).Show()
+	})
 
 	// 执行按钮
 	executeButton := widget.NewButton("执行", func() {
@@ -80,8 +125,29 @@ func (f *WebhookFeature) Create() fyne.CanvasObject {
 				return
 			}
 
-			// 发送HTTP POST请求
-			resp, err := http.Post(url, "application/json", bytes.NewBufferString(body))
+			// 创建请求
+			req, err := http.NewRequest("POST", url, bytes.NewBufferString(body))
+			if err != nil {
+				resultText.SetText(fmt.Sprintf("创建请求失败: %v", err))
+				return
+			}
+
+			// 解析请求头
+			headers := strings.Split(requestHeaders.Text, "\n")
+			for _, header := range headers {
+				header = strings.TrimSpace(header)
+				if header == "" {
+					continue
+				}
+				parts := strings.SplitN(header, ":", 2)
+				if len(parts) == 2 {
+					req.Header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+				}
+			}
+
+			// 发送请求
+			client := &http.Client{}
+			resp, err := client.Do(req)
 			if err != nil {
 				resultText.SetText(fmt.Sprintf("发送请求失败: %v", err))
 				return
@@ -97,7 +163,8 @@ func (f *WebhookFeature) Create() fyne.CanvasObject {
 			}
 
 			// 构建结果
-			result := fmt.Sprintf("状态码: %d\n响应: %s", resp.StatusCode, responseBody.String())
+			result := fmt.Sprintf("状态码: %d\n\n请求头:\n%v\n\n请求体:\n%s\n\n响应头:\n%v\n\n响应体:\n%s",
+				resp.StatusCode, req.Header, body, resp.Header, responseBody.String())
 			resultText.SetText(result)
 		}()
 	})
@@ -150,8 +217,19 @@ func (f *WebhookFeature) Create() fyne.CanvasObject {
 		),
 		widget.NewLabel("Webhook URL:"),
 		webhookURL,
+		widget.NewLabel("请求头:"),
+		requestHeaders,
 		widget.NewLabel("请求体:"),
 		requestBody,
+		container.NewHBox(
+			widget.NewLabel("预设名称:"),
+			savePresetName,
+			savePresetButton,
+		),
+		container.NewHBox(
+			widget.NewLabel("加载预设:"),
+			loadPreset,
+		),
 		container.NewHBox(
 			executeButton,
 			wecomButton,
