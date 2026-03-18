@@ -54,9 +54,9 @@ type ConnectionInfo struct {
 // 配置文件路径
 var configPath string
 
-// 初始化配置文件路径
+// init 初始化配置文件路径
+// 根据操作系统设置配置文件存储位置
 func init() {
-	// 获取用户主目录
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Println("获取用户主目录失败:", err)
@@ -69,7 +69,7 @@ func init() {
 		configPath = filepath.Join(homeDir, "AppData", "Roaming", "mvpreal", "config.json")
 	case "darwin":
 		configPath = filepath.Join(homeDir, "Library", "Application Support", "mvpreal", "config.json")
-	default: // linux
+	default:
 		configPath = filepath.Join(homeDir, ".config", "mvpreal", "config.json")
 	}
 
@@ -81,10 +81,10 @@ func init() {
 }
 
 // Load 加载配置
+// 从配置文件读取用户配置，如果文件不存在则返回默认配置
 func Load() (*Config, error) {
 	// 检查配置文件是否存在
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		// 配置文件不存在，返回默认配置
 		return GetDefaultConfig(), nil
 	}
 
@@ -104,14 +104,13 @@ func Load() (*Config, error) {
 }
 
 // Save 保存配置
+// 将配置序列化并写入配置文件
 func Save(config *Config) error {
-	// 序列化配置
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("序列化配置失败: %w", err)
 	}
 
-	// 写入配置文件
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("写入配置文件失败: %w", err)
 	}
@@ -120,6 +119,7 @@ func Save(config *Config) error {
 }
 
 // GetDefaultConfig 获取默认配置
+// 返回应用程序的默认配置参数
 func GetDefaultConfig() *Config {
 	return &Config{
 		Theme: "light",
@@ -137,7 +137,7 @@ func GetDefaultConfig() *Config {
 	}
 }
 
-// ConfigFeature 配置功能模块
+// ConfigFeature 配置管理功能模块
 type ConfigFeature struct{}
 
 // Name 返回功能模块名称
@@ -159,9 +159,8 @@ func (f *ConfigFeature) Help() string {
 - Linux: ~/.config/mvpreal/config.json`
 }
 
-// Create 创建功能模块的UI组件
+// Create 创建功能模块的 UI 组件
 func (f *ConfigFeature) Create() fyne.CanvasObject {
-	// 加载配置
 	cfg, err := Load()
 	if err != nil {
 		cfg = GetDefaultConfig()
@@ -188,7 +187,6 @@ func (f *ConfigFeature) Create() fyne.CanvasObject {
 		},
 	)
 
-	// 监听列表选择
 	dbConnList.OnSelected = func(id widget.ListItemID) {
 		selectedConnIndex = id
 	}
@@ -225,14 +223,10 @@ func (f *ConfigFeature) Create() fyne.CanvasObject {
 
 	// 重置按钮
 	resetButton := widget.NewButton("重置为默认配置", func() {
-		// 加载默认配置
 		defaultCfg := GetDefaultConfig()
-		// 保存默认配置
 		Save(defaultCfg)
-		// 更新显示
 		configInfo.SetText(fmt.Sprintf("主题: %s\n窗口大小: %dx%d\n最近连接数: %d\n数据库连接数: %d\n收藏模块数: %d\n置顶模块数: %d\n\n配置已重置为默认值",
 			defaultCfg.Theme, defaultCfg.WindowSize.Width, defaultCfg.WindowSize.Height, len(defaultCfg.RecentConnections), len(defaultCfg.DBConnections), len(defaultCfg.Favorites), len(defaultCfg.PinnedModules)))
-		// 刷新列表
 		selectedConnIndex = -1
 		dbConnList.Refresh()
 		favoritesList.Refresh()
@@ -241,16 +235,12 @@ func (f *ConfigFeature) Create() fyne.CanvasObject {
 
 	// 添加连接按钮
 	addConnButton := widget.NewButton("添加数据库连接", func() {
-		// 这里可以添加添加数据库连接的逻辑
-		// 暂时只是提示
 		dialog.NewInformation("提示", "添加数据库连接功能开发中...", nil).Show()
 	})
 
 	// 编辑连接按钮
 	editConnButton := widget.NewButton("编辑数据库连接", func() {
 		if selectedConnIndex >= 0 && selectedConnIndex < len(cfg.DBConnections) {
-			// 这里可以添加编辑数据库连接的逻辑
-			// 暂时只是提示
 			dialog.NewInformation("提示", "编辑数据库连接功能开发中...", nil).Show()
 		} else {
 			dialog.NewInformation("提示", "请先选择一个数据库连接", nil).Show()
@@ -260,14 +250,10 @@ func (f *ConfigFeature) Create() fyne.CanvasObject {
 	// 删除连接按钮
 	deleteConnButton := widget.NewButton("删除数据库连接", func() {
 		if selectedConnIndex >= 0 && selectedConnIndex < len(cfg.DBConnections) {
-			// 删除选中的连接
 			cfg.DBConnections = append(cfg.DBConnections[:selectedConnIndex], cfg.DBConnections[selectedConnIndex+1:]...)
-			// 保存配置
 			Save(cfg)
-			// 更新显示
 			configInfo.SetText(fmt.Sprintf("主题: %s\n窗口大小: %dx%d\n最近连接数: %d\n数据库连接数: %d\n收藏模块数: %d\n置顶模块数: %d",
 				cfg.Theme, cfg.WindowSize.Width, cfg.WindowSize.Height, len(cfg.RecentConnections), len(cfg.DBConnections), len(cfg.Favorites), len(cfg.PinnedModules)))
-			// 刷新列表
 			selectedConnIndex = -1
 			dbConnList.Refresh()
 		} else {
@@ -299,7 +285,7 @@ func (f *ConfigFeature) Create() fyne.CanvasObject {
 	return container.NewScroll(form)
 }
 
-// init 函数，自动注册功能模块
+// init 自动注册配置管理功能模块
 func init() {
 	feat.RegisterFeature(&ConfigFeature{})
 }
