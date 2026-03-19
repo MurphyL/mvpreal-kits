@@ -27,20 +27,25 @@ func registerFeatures() []feat.Feature {
 	return feat.GlobalFeatureFactory.GetAll()
 }
 
-// createFeatureContent 创建功能模块的 UI 内容容器
-// 包含功能内容和帮助、收藏、置顶按钮
+// createSidebarItem 创建侧边栏导航项
+func createSidebarItem(feature feat.Feature, isActive bool, callback func()) fyne.CanvasObject {
+	button := widget.NewButton(feature.Name(), callback)
+	if isActive {
+		button.Importance = widget.HighImportance
+	}
+	return button
+}
+
+// createFeatureContent 创建功能模块的 UI 内容
 func createFeatureContent(feature feat.Feature, cfg *config.Config, myWindow fyne.Window) fyne.CanvasObject {
-	// 创建功能模块的 UI 组件
 	content := feature.Create()
 
-	// 创建帮助按钮
 	helpButton := widget.NewButton("帮助", func() {
 		helpContent := widget.NewLabel(feature.Help())
 		helpContent.Wrapping = fyne.TextWrapWord
 		dialog.NewCustom(feature.Name()+"帮助", "关闭", container.NewScroll(helpContent), myWindow).Show()
 	})
 
-	// 创建收藏按钮
 	favoriteButton := widget.NewButton("", nil)
 	isFavorite := func(name string) bool {
 		for _, fav := range cfg.Favorites {
@@ -64,7 +69,6 @@ func createFeatureContent(feature feat.Feature, cfg *config.Config, myWindow fyn
 		}
 	}
 
-	// 创建置顶按钮
 	pinnedButton := widget.NewButton("", nil)
 	isPinned := func(name string) bool {
 		for _, pinned := range cfg.PinnedModules {
@@ -88,7 +92,6 @@ func createFeatureContent(feature feat.Feature, cfg *config.Config, myWindow fyn
 		}
 	}
 
-	// 创建包含功能内容和按钮的容器
 	featureContent := container.NewBorder(
 		container.NewHBox(helpButton, favoriteButton, pinnedButton),
 		nil, nil, nil,
@@ -139,53 +142,64 @@ func RunApp() {
 	myApp := app.New()
 	myWindow := myApp.NewWindow("多功能执行器")
 
-	// 加载配置，失败则使用默认配置
 	cfg, err := config.Load()
 	if err != nil {
 		cfg = config.GetDefaultConfig()
 	}
 
-	// 设置窗口大小
 	myWindow.Resize(fyne.NewSize(float32(cfg.WindowSize.Width), float32(cfg.WindowSize.Height)))
 
-	// 设置主题
 	if cfg.Theme == "dark" {
 		myApp.Settings().SetTheme(theme.DarkTheme())
 	} else {
 		myApp.Settings().SetTheme(theme.LightTheme())
 	}
 
-	// 动态加载功能模块
 	features := registerFeatures()
-	tabs := container.NewAppTabs()
 
-	// 首先添加置顶的模块
+	contentContainer := container.NewVBox(widget.NewLabel("选择一个功能模块"))
+	// contentContainer.SetMinSize(fyne.NewSize(400, 300))
+
+	var sidebarItems []fyne.CanvasObject
 	for _, feature := range features {
 		if isPinned(feature.Name(), cfg) {
-			featureContent := createFeatureContent(feature, cfg, myWindow)
-			tabs.Append(container.NewTabItem(feature.Name(), featureContent))
+			sidebarItems = append(sidebarItems, createSidebarItem(feature, false, func() {
+				content := createFeatureContent(feature, cfg, myWindow)
+				contentContainer.RemoveAll()
+				contentContainer.Add(content)
+			}))
 		}
 	}
-
-	// 然后添加收藏的模块（非置顶）
 	for _, feature := range features {
 		if !isPinned(feature.Name(), cfg) && isFavorite(feature.Name(), cfg) {
-			featureContent := createFeatureContent(feature, cfg, myWindow)
-			tabs.Append(container.NewTabItem(feature.Name(), featureContent))
+			sidebarItems = append(sidebarItems, createSidebarItem(feature, true, func() {
+				content := createFeatureContent(feature, cfg, myWindow)
+				contentContainer.RemoveAll()
+				contentContainer.Add(content)
+			}))
 		}
 	}
-
-	// 最后添加非置顶且非收藏的模块
 	for _, feature := range features {
 		if !isPinned(feature.Name(), cfg) && !isFavorite(feature.Name(), cfg) {
-			featureContent := createFeatureContent(feature, cfg, myWindow)
-			tabs.Append(container.NewTabItem(feature.Name(), featureContent))
+			sidebarItems = append(sidebarItems, createSidebarItem(feature, false, func() {
+				content := createFeatureContent(feature, cfg, myWindow)
+				contentContainer.RemoveAll()
+				contentContainer.Add(content)
+			}))
 		}
 	}
 
-	myWindow.SetContent(tabs)
+	sidebar := container.NewVBox(sidebarItems...)
+	// sidebar.SetMinSize(fyne.NewSize(150, 0))
 
-	// 监听窗口关闭事件，保存窗口大小
+	mainContent := container.NewBorder(
+		container.NewScroll(sidebar),
+		nil, nil, nil,
+		contentContainer,
+	)
+
+	myWindow.SetContent(mainContent)
+
 	myWindow.SetOnClosed(func() {
 		size := myWindow.Canvas().Size()
 		cfg.WindowSize.Width = int(size.Width)
