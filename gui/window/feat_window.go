@@ -1,12 +1,15 @@
-package gui
+package window
 
 import (
 	"mvpreal/feat"
-	_ "mvpreal/feat/codec"
 	"mvpreal/feat/config"
-	_ "mvpreal/feat/config"
+	"mvpreal/gui/settings"
+
 	_ "mvpreal/feat/crypto"
+	_ "mvpreal/feat/datetime"
+	_ "mvpreal/feat/excel"
 	_ "mvpreal/feat/http"
+	_ "mvpreal/feat/json"
 	_ "mvpreal/feat/jwt"
 	_ "mvpreal/feat/nosql"
 	_ "mvpreal/feat/rdbms"
@@ -14,12 +17,49 @@ import (
 	_ "mvpreal/feat/webhook"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
+
+func NewFeatureWindow(minWidth, minHeight float32) *featureLayout {
+	return &featureLayout{
+		minSize: fyne.NewSize(minWidth, minHeight),
+	}
+}
+
+type featureLayout struct {
+	minSize fyne.Size
+}
+
+func (l *featureLayout) AppIcon() fyne.Resource {
+	return theme.Icon(theme.IconNameInfo)
+}
+
+func (l *featureLayout) Title() string {
+	return "功能模块窗口"
+}
+
+func (l *featureLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	return l.minSize
+}
+
+func (l *featureLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	layout.NewCustomPaddedHBoxLayout(0).Layout(objects, size)
+}
+
+func (l *featureLayout) Contents() []fyne.CanvasObject {
+	text1 := widget.NewLabel("top")
+	text2 := widget.NewLabel("middle")
+	text3 := widget.NewLabel("bottom")
+	return []fyne.CanvasObject{text1, text2, text3}
+}
+
+type FeatureWindow struct {
+	fyne.Container
+}
 
 // registerFeatures 注册所有功能模块
 // 通过导入功能模块包触发 init 函数自动注册到全局工厂
@@ -137,10 +177,9 @@ func togglePinned(name string, cfg *config.Config) {
 	config.Save(cfg)
 }
 
-// RunApp 运行应用程序
-func RunApp() {
-	myApp := app.New()
-	myWindow := myApp.NewWindow("多功能执行器")
+// ShowTabNaviView 运行应用程序
+func ShowTabNaviView(appInst fyne.App) {
+	myWindow := appInst.NewWindow("多功能执行器")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -150,19 +189,19 @@ func RunApp() {
 	myWindow.Resize(fyne.NewSize(float32(cfg.WindowSize.Width), float32(cfg.WindowSize.Height)))
 
 	if cfg.Theme == "dark" {
-		myApp.Settings().SetTheme(theme.DarkTheme())
+		appInst.Settings().SetTheme(theme.DarkTheme())
 	} else {
-		myApp.Settings().SetTheme(theme.LightTheme())
+		appInst.Settings().SetTheme(theme.LightTheme())
 	}
 
 	features := registerFeatures()
 
 	contentContainer := container.NewVBox(widget.NewLabel("选择一个功能模块"))
-	// contentContainer.SetMinSize(fyne.NewSize(400, 300))
+	contentContainer.Resize(fyne.NewSize(400, 300))
 
 	var sidebarItems []fyne.CanvasObject
 	for _, feature := range features {
-		if isPinned(feature.Name(), cfg) {
+		if settings.IsPinned(feature.Name(), cfg) {
 			sidebarItems = append(sidebarItems, createSidebarItem(feature, false, func() {
 				content := createFeatureContent(feature, cfg, myWindow)
 				contentContainer.RemoveAll()
@@ -171,7 +210,7 @@ func RunApp() {
 		}
 	}
 	for _, feature := range features {
-		if !isPinned(feature.Name(), cfg) && isFavorite(feature.Name(), cfg) {
+		if !settings.IsPinned(feature.Name(), cfg) && settings.IsFavorite(feature.Name(), cfg) {
 			sidebarItems = append(sidebarItems, createSidebarItem(feature, true, func() {
 				content := createFeatureContent(feature, cfg, myWindow)
 				contentContainer.RemoveAll()
@@ -180,7 +219,7 @@ func RunApp() {
 		}
 	}
 	for _, feature := range features {
-		if !isPinned(feature.Name(), cfg) && !isFavorite(feature.Name(), cfg) {
+		if !settings.IsPinned(feature.Name(), cfg) && !settings.IsFavorite(feature.Name(), cfg) {
 			sidebarItems = append(sidebarItems, createSidebarItem(feature, false, func() {
 				content := createFeatureContent(feature, cfg, myWindow)
 				contentContainer.RemoveAll()
@@ -208,24 +247,4 @@ func RunApp() {
 	})
 
 	myWindow.ShowAndRun()
-}
-
-// isFavorite 检查模块是否在收藏列表中
-func isFavorite(name string, cfg *config.Config) bool {
-	for _, fav := range cfg.Favorites {
-		if fav == name {
-			return true
-		}
-	}
-	return false
-}
-
-// isPinned 检查模块是否在置顶列表中
-func isPinned(name string, cfg *config.Config) bool {
-	for _, pinned := range cfg.PinnedModules {
-		if pinned == name {
-			return true
-		}
-	}
-	return false
 }

@@ -3,11 +3,10 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"mvpreal/feat"
 	"os"
 	"path/filepath"
 	"runtime"
-
-	"mvpreal/feat"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"

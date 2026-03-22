@@ -1,6 +1,8 @@
 package feat
 
-import "fyne.io/fyne/v2"
+import (
+	"fyne.io/fyne/v2"
+)
 
 // Feature 功能模块接口
 type Feature interface {
